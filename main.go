@@ -28,7 +28,7 @@ func writeJSON(w http.ResponseWriter, data interface{}) {
 	}
 }
 
-func getItems(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
+func getProducts(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
 	if id != 0 {
 		var product Product
 
@@ -68,7 +68,7 @@ func getItems(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
 	}
 }
 
-func createItem(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+func createProduct(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -93,15 +93,25 @@ func createItem(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO products (name) VALUES (?)", product.Name)
+	result, err := db.Exec("INSERT INTO products (name) VALUES (?)", product.Name)
 	if err != nil {
 		log.Fatal(err)
 		http.Error(w, "Unable to write to datbase", http.StatusInternalServerError)
 	}
-	fmt.Fprintf(w, "Created a new product")
+
+	newProductId, _ := result.LastInsertId()
+
+	var newProduct Product
+
+	if err = db.QueryRow("SELECT * FROM products WHERE id = ?", newProductId).Scan(&newProduct.Id, &newProduct.Name); err != nil {
+		http.Error(w, "An error occured while fetching the newly created row", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, newProduct)
 }
 
-func updateItem(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
+func updateProducts(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -140,7 +150,7 @@ func updateItem(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
 	writeJSON(w, newProduct)
 }
 
-func deleteItem(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
+func deleteProduct(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
 	result, err := db.Exec("DELETE from products WHERE id = ?", id)
 	if err != nil {
 		http.Error(w, "An error occured while deleting your data", http.StatusInternalServerError)
@@ -183,7 +193,7 @@ func main() {
 	http.HandleFunc("/products", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			createItem(w, r, db)
+			createProduct(w, r, db)
 		default:
 			http.Redirect(w, r, "/products/", http.StatusMovedPermanently)
 		}
@@ -206,13 +216,13 @@ func main() {
 
 		switch r.Method {
 		case http.MethodPost:
-			createItem(w, r, db)
+			createProduct(w, r, db)
 		case http.MethodGet:
-			getItems(w, r, id, db)
+			getProducts(w, r, id, db)
 		case http.MethodPut:
-			updateItem(w, r, id, db)
+			updateProducts(w, r, id, db)
 		case http.MethodDelete:
-			deleteItem(w, r, id, db)
+			deleteProduct(w, r, id, db)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
