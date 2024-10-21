@@ -73,6 +73,7 @@ func createItem(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Unable to read request body", http.StatusBadRequest)
+		return
 	}
 	var product Product
 
@@ -101,11 +102,62 @@ func createItem(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 }
 
 func updateItem(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
-	fmt.Fprintf(w, "Updated item, %d", id)
+	defer r.Body.Close()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Unable to read request body", http.StatusBadRequest)
+		return
+	}
+	var newProduct Product
+
+	if err = json.Unmarshal(body, &newProduct); err != nil {
+		http.Error(w, "Error parsing request body as json", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println(newProduct.Name, id)
+	result, err := db.Exec("UPDATE products SET name = ? WHERE id = ?", newProduct.Name, id)
+
+	if err != nil {
+		http.Error(w, "An error occured while updating the rows", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("An error occured for product with id %d", id), http.StatusBadRequest)
+		return
+	}
+	if rowsAffected == 0 {
+		http.Error(w, fmt.Sprintf("No such product with id %d", id), http.StatusBadRequest)
+		return
+	}
+
+	if err = db.QueryRow("SELECT * FROM products WHERE id=?", id).Scan(&newProduct.Id, &newProduct.Name); err != nil {
+		http.Error(w, "An error occured while writing the rows", http.StatusInternalServerError)
+	}
+
+	writeJSON(w, newProduct)
 }
 
-func deleteItem(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
-	fmt.Fprintf(w, "Deleted item, %d", id)
+func deleteItem(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
+	result, err := db.Exec("DELETE from products WHERE id = ?", id)
+	if err != nil {
+		http.Error(w, "An error occured while deleting your data", http.StatusInternalServerError)
+		return
+	}
+	rowsAffected, err := result.RowsAffected()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if rowsAffected == 0 {
+		http.Error(w, fmt.Sprintf("No such product with id, %d", id), http.StatusBadRequest)
+		return
+	}
+
+	fmt.Fprintf(w, "Deleted product successfully")
 }
 
 func initDB(db *sql.DB) {
