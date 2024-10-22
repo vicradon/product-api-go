@@ -274,7 +274,7 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		host = r.Host
-		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
+		http.Redirect(w, r, basePath+"/swagger/index.html", http.StatusMovedPermanently)
 	})
 
 	http.Handle(basePath+"/swagger/*", httpSwagger.Handler(
