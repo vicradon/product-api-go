@@ -8,17 +8,16 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func setupTestDB(t *testing.T) *sql.DB {
 	db, err := sql.Open("sqlite3", ":memory:")
-
 	if err != nil {
 		t.Fatalf("failed to open test db %v", err)
 	}
-
 	initDB(db)
-
 	return db
 }
 
@@ -27,8 +26,13 @@ func TestCreateProduct(t *testing.T) {
 	defer db.Close()
 
 	productName := "Test Product"
-
 	reqBody := fmt.Sprintf(`{"name":"%s"}`, productName)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.POST("/products", func(c *gin.Context) {
+		createProduct(c, db) // Only pass context and db
+	})
 
 	req, err := http.NewRequest("POST", "/products", strings.NewReader(reqBody))
 	if err != nil {
@@ -36,14 +40,10 @@ func TestCreateProduct(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		createProduct(w, r, db)
-	})
+	router.ServeHTTP(rr, req)
 
-	handler.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("Handler returned wrong status code: got %v expected %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("Handler returned wrong status code: got %v expected %v", status, http.StatusCreated)
 	}
 
 	var product Product
@@ -66,24 +66,26 @@ func TestListProducts(t *testing.T) {
 		t.Fatalf("Failed to insert test products to db: %v", err)
 	}
 
-	responserecorder := httptest.NewRecorder()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		getProducts(w, r, db)
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/products", func(c *gin.Context) {
+		getProducts(c, db) // Only pass context and db
 	})
 
-	request, err := http.NewRequest("GET", "/products", nil)
+	req, err := http.NewRequest("GET", "/products", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	handler.ServeHTTP(responserecorder, request)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
 
-	if status := responserecorder.Code; status != http.StatusOK {
+	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Handler returned wrong status code: got %v expected %v", status, http.StatusOK)
 	}
 
 	var products []Product
-	err = json.NewDecoder(responserecorder.Body).Decode(&products)
+	err = json.NewDecoder(rr.Body).Decode(&products)
 	if err != nil {
 		t.Errorf("Could not decode JSON body: %v", err)
 	}
@@ -98,24 +100,24 @@ func TestGetSingleProduct(t *testing.T) {
 	defer db.Close()
 
 	product2Name := "Soap"
-
 	_, err := db.Exec("INSERT INTO products (name) VALUES (?), (?), (?)", "Toothpaste", "Toothbrush", product2Name)
 	if err != nil {
 		t.Fatalf("Failed to insert into products: %v", err)
 	}
 
-	rr := httptest.NewRecorder()
-
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		getProduct(w, r, 3, db)
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/products/:id", func(c *gin.Context) {
+		getProduct(c, db) // Only pass context and db; function should handle ID extraction
 	})
 
-	req, err := http.NewRequest("GET", "/products/1", nil)
+	req, err := http.NewRequest("GET", "/products/3", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	handler.ServeHTTP(rr, req)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Handler returned wrong status code: got %v expected %v", status, http.StatusOK)
@@ -140,28 +142,27 @@ func TestUpdateProduct(t *testing.T) {
 	product1NewName := "Honey"
 
 	_, err := db.Exec("INSERT INTO products (name) VALUES (?), (?), (?)", "Brownies", product1Name, "Flour")
-
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		updateProduct(w, r, 2, db)
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.PUT("/products/:id", func(c *gin.Context) {
+		updateProduct(c, db) // Only pass context and db
 	})
 
 	reqBody := fmt.Sprintf(`{"name":"%s"}`, product1NewName)
-
 	req, err := http.NewRequest("PUT", "/products/2", strings.NewReader(reqBody))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	handler.ServeHTTP(rr, req)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
 
-	status := rr.Code
-	if status != http.StatusOK {
-		t.Errorf("Hanlder returned wrong status code: got %v expected %v", status, http.StatusOK)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v expected %v", status, http.StatusOK)
 	}
 
 	var product1 Product
@@ -183,10 +184,10 @@ func TestDeleteProduct(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rr := httptest.NewRecorder()
-
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		deleteProduct(w, r, 2, db)
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.DELETE("/products/:id", func(c *gin.Context) {
+		deleteProduct(c, db) // Only pass context and db
 	})
 
 	req, err := http.NewRequest("DELETE", "/products/1", nil)
@@ -194,10 +195,10 @@ func TestDeleteProduct(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handler.ServeHTTP(rr, req)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
 
-	status := rr.Code
-	if status != http.StatusOK {
+	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Handler returned wrong status code: got %v but expected %v", status, http.StatusOK)
 	}
 
@@ -208,7 +209,6 @@ func TestDeleteProduct(t *testing.T) {
 	}
 
 	expectedRows := 2
-
 	if expectedRows != rowCount {
 		t.Errorf("expected %v number of rows remaining, but got %v", expectedRows, rowCount)
 	}
