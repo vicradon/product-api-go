@@ -255,6 +255,8 @@ func main() {
 	databaseFile := os.Getenv("DATABASE_FILE")
 	port := os.Getenv("PORT")
 	host := os.Getenv("HOST")
+	basePath := os.Getenv("BASE_PATH")
+	fmt.Println(basePath)
 
 	if host == "" {
 		host = fmt.Sprintf("localhost:%s", port)
@@ -275,11 +277,11 @@ func main() {
 		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
 	})
 
-	http.Handle("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("/swagger/doc.json"),
+	http.Handle(basePath+"/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL(basePath+"/swagger/doc.json"),
 	))
 
-	http.HandleFunc("/products", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(basePath+"/products", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			createProduct(w, r, db)
@@ -290,7 +292,7 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/products/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(basePath+"/products/", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/products")
 		path = strings.Trim(path, "/")
 
