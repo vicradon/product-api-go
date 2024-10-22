@@ -17,14 +17,22 @@ const docTemplate = `{
     "paths": {
         "/products": {
             "get": {
-                "description": "Get all products",
+                "description": "Get all products or retrieve a specific product by name. Name query parameter is optional.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "products"
                 ],
-                "summary": "List all products",
+                "summary": "List all products or get a product by name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the product to retrieve",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -33,6 +41,45 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/main.Product"
                             }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update a product's information by name",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Update a product by name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the product to update",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated product object",
+                        "name": "product",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/main.Product"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/main.Product"
                         }
                     }
                 }
@@ -66,6 +113,33 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/main.Product"
                         }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove a product's information by name",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Delete a product by name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the product to delete",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     }
                 }
             }

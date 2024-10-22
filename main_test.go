@@ -95,7 +95,7 @@ func TestListProducts(t *testing.T) {
 	}
 }
 
-func TestGetSingleProduct(t *testing.T) {
+func TestGetProductById(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -108,7 +108,7 @@ func TestGetSingleProduct(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
 	router.GET("/products/:id", func(c *gin.Context) {
-		getProduct(c, db) // Only pass context and db; function should handle ID extraction
+		getProduct(c, db)
 	})
 
 	req, err := http.NewRequest("GET", "/products/3", nil)
@@ -134,6 +134,57 @@ func TestGetSingleProduct(t *testing.T) {
 	}
 }
 
+func TestGetProductByName(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	productName := "Test Product"
+	_, err := db.Exec("INSERT INTO products (name) VALUES (?)", productName)
+	if err != nil {
+		t.Fatalf("Failed to insert test product into db: %v", err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/products", func(c *gin.Context) {
+		getProducts(c, db)
+	})
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("/products?name=%s", productName), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v expected %v", status, http.StatusOK)
+	}
+
+	var product Product
+	err = json.NewDecoder(rr.Body).Decode(&product)
+	if err != nil {
+		t.Errorf("Could not decode JSON body: %v", err)
+	}
+
+	if product.Name != productName {
+		t.Fatalf("Expected product name to be %v but got %v", productName, product.Name)
+	}
+
+	req, err = http.NewRequest("GET", "/products?name=NonExistingProduct", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("Handler returned wrong status code for non-existing product: got %v expected %v", status, http.StatusNotFound)
+	}
+}
+
 func TestUpdateProduct(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
@@ -149,7 +200,7 @@ func TestUpdateProduct(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
 	router.PUT("/products/:id", func(c *gin.Context) {
-		updateProduct(c, db) // Only pass context and db
+		updateProduct(c, db)
 	})
 
 	reqBody := fmt.Sprintf(`{"name":"%s"}`, product1NewName)
@@ -176,7 +227,60 @@ func TestUpdateProduct(t *testing.T) {
 	}
 }
 
-func TestDeleteProduct(t *testing.T) {
+func TestUpdateProductByName(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	initialProductName := "Bread"
+	newProductName := "Buns"
+	_, err := db.Exec("INSERT INTO products (name) VALUES (?)", initialProductName)
+	if err != nil {
+		t.Fatalf("Failed to insert test product into db: %v", err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.PUT("/products", func(c *gin.Context) {
+		updateProductByName(c, db)
+	})
+
+	reqBody := fmt.Sprintf(`{"name":"%s"}`, newProductName)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/products?name=%s", initialProductName), strings.NewReader(reqBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code: got %v expected %v", status, http.StatusOK)
+	}
+
+	var product Product
+	err = json.NewDecoder(rr.Body).Decode(&product)
+	if err != nil {
+		t.Errorf("Could not decode JSON body: %v", err)
+	}
+
+	if product.Name != newProductName {
+		t.Fatalf("Expected product name to be %v but got %v", newProductName, product.Name)
+	}
+
+	req, err = http.NewRequest("GET", fmt.Sprintf("/products?name=%s", newProductName), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("Handler returned wrong status code for updated product: got %v expected %v", status, http.StatusNotFound)
+	}
+}
+
+func TestDeleteProductById(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
@@ -211,5 +315,58 @@ func TestDeleteProduct(t *testing.T) {
 	expectedRows := 2
 	if expectedRows != rowCount {
 		t.Errorf("expected %v number of rows remaining, but got %v", expectedRows, rowCount)
+	}
+}
+
+func TestDeleteProductByName(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	productName := "Saccharin"
+	_, err := db.Exec("INSERT INTO products (name) VALUES (?)", productName)
+	if err != nil {
+		t.Fatalf("Failed to insert test product into db: %v", err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.DELETE("/products", func(c *gin.Context) {
+		deleteProductByName(c, db)
+	})
+
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("/products?name=%s", productName), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Handler returned wrong status code for delete: got %v expected %v", status, http.StatusNoContent)
+	}
+
+	req, err = http.NewRequest("GET", fmt.Sprintf("/products?name=%s", productName), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("Handler should return 404 for deleted product: got %v expected %v", status, http.StatusNotFound)
+	}
+
+	req, err = http.NewRequest("DELETE", "/products?name=NonExistingProduct", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr = httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("Handler should return 404 for non-existing product: got %v expected %v", status, http.StatusNotFound)
 	}
 }

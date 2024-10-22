@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
+	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -33,7 +34,7 @@ var validate = validator.New()
 
 // initDB initializes the database
 func initDB(db *sql.DB) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,16 +64,27 @@ func getProduct(c *gin.Context, db *sql.DB) {
 	c.JSON(http.StatusOK, product)
 }
 
-// @Summary     List all products
-// @Description Get all products
+// @Summary     List all products or get a product by name
+// @Description Get all products or retrieve a specific product by name. Name query parameter is optional.
 // @Tags        products
 // @Produce     json
+// @Param       name  query      string false "Name of the product to retrieve"
 // @Success     200 {array}  Product
 // @Router      /products [get]
 func getProducts(c *gin.Context, db *sql.DB) {
-	rows, err := db.Query("SELECT * FROM products")
+	productName := c.Query("name")
+
+	var rows *sql.Rows
+	var err error
+
+	if productName != "" {
+		rows, err = db.Query("SELECT * FROM products WHERE name=?", productName)
+	} else {
+		rows, err = db.Query("SELECT * FROM products")
+	}
+
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to read from database"})
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to read from database"})
 		return
 	}
 	defer rows.Close()
@@ -82,13 +94,22 @@ func getProducts(c *gin.Context, db *sql.DB) {
 	for rows.Next() {
 		var product Product
 		if err := rows.Scan(&product.Id, &product.Name); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Bad reading of database content"})
+			c.JSON(http.StatusInternalServerError, map[string]string{"error": "Bad reading of database content"})
 			return
 		}
 		products = append(products, product)
 	}
 
-	c.JSON(http.StatusOK, products)
+	if productName != "" && len(products) == 0 {
+		c.JSON(http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No such product with name '%s'. Product names must be exact", productName)})
+		return
+	}
+
+	if productName != "" {
+		c.JSON(http.StatusOK, products[0])
+	} else {
+		c.JSON(http.StatusOK, products)
+	}
 }
 
 // @Summary     Create a new product
@@ -118,6 +139,10 @@ func createProduct(c *gin.Context, db *sql.DB) {
 
 	result, err := db.Exec("INSERT INTO products (name) VALUES (?)", product.Name)
 	if err != nil {
+		if sqliteErr, ok := err.(sqlite3.Error); ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+			c.JSON(http.StatusConflict, gin.H{"error": "Product name already exists"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to write to database"})
 		return
 	}
@@ -153,18 +178,65 @@ func updateProduct(c *gin.Context, db *sql.DB) {
 	result, err := db.Exec("UPDATE products SET name = ? WHERE id = ?", newProduct.Name, id)
 
 	if err != nil {
+		if sqliteErr, ok := err.(sqlite3.Error); ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+			c.JSON(http.StatusConflict, gin.H{"error": "A product with this name already exists"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while updating the rows"})
 		return
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil || rowsAffected == 0 {
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("No such product with id %d", id)})
 		return
 	}
 
 	if err = db.QueryRow("SELECT * FROM products WHERE id=?", id).Scan(&newProduct.Id, &newProduct.Name); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while writing the rows"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while returning the updated data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, newProduct)
+}
+
+// @Summary     Update a product by name
+// @Description Update a product's information by name
+// @Tags        products
+// @Accept      json
+// @Produce     json
+// @Param       name  query      string true "Name of the product to update"
+// @Param       product body Product true "Updated product object"
+// @Success     200 {object} Product
+// @Router      /products [put]
+func updateProductByName(c *gin.Context, db *sql.DB) {
+	productName := c.Query("name")
+	var newProduct Product
+
+	if err := c.ShouldBindJSON(&newProduct); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Error parsing the request body as JSON"})
+		return
+	}
+
+	result, err := db.Exec("UPDATE products SET name = ? WHERE name = ?", newProduct.Name, productName)
+	if err != nil {
+		if sqliteErr, ok := err.(sqlite3.Error); ok && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+			c.JSON(http.StatusConflict, gin.H{"error": "A product with this name already exists"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occured while updating the product"})
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+
+	if rowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("No such product with name '%s'. Product names must be exact", productName)})
+		return
+	}
+
+	if err = db.QueryRow("SELECT * FROM products WHERE name=?", newProduct.Name).Scan(&newProduct.Id, &newProduct.Name); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while returning the updated data"})
 		return
 	}
 
@@ -185,9 +257,40 @@ func deleteProduct(c *gin.Context, db *sql.DB) {
 		return
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil || rowsAffected == 0 {
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("No such product with id, %d", id)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Deleted product successfully"})
+}
+
+// @Summary     Delete a product by name
+// @Description Remove a product's information by name
+// @Tags        products
+// @Accept      json
+// @Produce     json
+// @Param       name  query      string true "Name of the product to delete"
+// @Success     204 {object} nil
+// @Router      /products [delete]
+func deleteProductByName(c *gin.Context, db *sql.DB) {
+	productName := c.Query("name")
+
+	result, err := db.Exec("DELETE FROM products WHERE name=?", productName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while deleting the product"})
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "An error occurred while retrieving deletion status"})
+		return
+	}
+
+	if rowsAffected == 0 {
+		c.JSON(http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No such product with name '%s'. Product names must be exact", productName)})
 		return
 	}
 
@@ -229,8 +332,13 @@ func main() {
 	r.GET("/products", func(c *gin.Context) {
 		getProducts(c, db)
 	})
+
 	r.POST("/products", func(c *gin.Context) {
 		createProduct(c, db)
+	})
+
+	r.PUT("/products", func(c *gin.Context) {
+		updateProductByName(c, db)
 	})
 
 	r.GET("/products/:id", func(c *gin.Context) {
@@ -241,6 +349,9 @@ func main() {
 	})
 	r.DELETE("/products/:id", func(c *gin.Context) {
 		deleteProduct(c, db)
+	})
+	r.DELETE("/products", func(c *gin.Context) {
+		deleteProductByName(c, db)
 	})
 
 	fmt.Printf("Server running on port %s\n", port)
