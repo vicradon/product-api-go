@@ -39,6 +39,13 @@ func initDB(db *sql.DB) {
 	}
 }
 
+// @Summary     Get a product
+// @Description Get a product by its ID
+// @Tags        products
+// @Produce     json
+// @Param       id path int true "Product ID"
+// @Success     200 {object} Product
+// @Router      /products/{id} [get]
 func getProduct(c *gin.Context, db *sql.DB) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var product Product
@@ -56,6 +63,12 @@ func getProduct(c *gin.Context, db *sql.DB) {
 	c.JSON(http.StatusOK, product)
 }
 
+// @Summary     List all products
+// @Description Get all products
+// @Tags        products
+// @Produce     json
+// @Success     200 {array}  Product
+// @Router      /products [get]
 func getProducts(c *gin.Context, db *sql.DB) {
 	rows, err := db.Query("SELECT * FROM products")
 	if err != nil {
@@ -78,6 +91,14 @@ func getProducts(c *gin.Context, db *sql.DB) {
 	c.JSON(http.StatusOK, products)
 }
 
+// @Summary     Create a new product
+// @Description Add a new product to the database
+// @Tags        products
+// @Accept      json
+// @Produce     json
+// @Param       product body Product true "Product object"
+// @Success     201 {object} Product
+// @Router      /products [post]
 func createProduct(c *gin.Context, db *sql.DB) {
 	var product Product
 
@@ -111,6 +132,15 @@ func createProduct(c *gin.Context, db *sql.DB) {
 	c.JSON(http.StatusCreated, product)
 }
 
+// @Summary     Update a product
+// @Description Update a product's information
+// @Tags        products
+// @Accept      json
+// @Produce     json
+// @Param       id path int true "Product ID"
+// @Param       product body Product true "Updated product object"
+// @Success     200 {object} Product
+// @Router      /products/{id} [put]
 func updateProduct(c *gin.Context, db *sql.DB) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	var newProduct Product
@@ -141,6 +171,12 @@ func updateProduct(c *gin.Context, db *sql.DB) {
 	c.JSON(http.StatusOK, newProduct)
 }
 
+// @Summary     Delete a product
+// @Description Delete a product by its ID
+// @Tags        products
+// @Param       id path int true "Product ID"
+// @Success     200 {object} map[string]string
+// @Router      /products/{id} [delete]
 func deleteProduct(c *gin.Context, db *sql.DB) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	result, err := db.Exec("DELETE from products WHERE id = ?", id)

@@ -1,7 +1,6 @@
 basePath: /
 definitions:
   main.Product:
-    description: Product model
     properties:
       id:
         description: "@Description\tThe unique ID of the product"
@@ -20,6 +19,8 @@ paths:
   /products:
     get:
       description: Get all products
+      produces:
+      - application/json
       responses:
         "200":
           description: OK
@@ -27,21 +28,15 @@ paths:
             items:
               $ref: '#/definitions/main.Product'
             type: array
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      summary: Get products
+      summary: List all products
+      tags:
+      - products
     post:
       consumes:
       - application/json
-      description: Create a product with the provided data
+      description: Add a new product to the database
       parameters:
-      - description: Product data
+      - description: Product object
         in: body
         name: product
         required: true
@@ -54,72 +49,57 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/main.Product'
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
       summary: Create a new product
+      tags:
+      - products
   /products/{id}:
     delete:
-      description: Delete a product by ID
+      description: Delete a product by its ID
       parameters:
       - description: Product ID
         in: path
         name: id
         required: true
-        type: integer
-      responses:
-        "200":
-          description: Deleted successfully
-          schema:
-            type: string
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      summary: Delete a product
-    get:
-      description: Get a specific product by ID
-      parameters:
-      - description: Product ID
-        in: path
-        name: id
         type: integer
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/main.Product'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      summary: Get product
-    put:
-      consumes:
-      - application/json
-      description: Update a product by ID
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a product
+      tags:
+      - products
+    get:
+      description: Get a product by its ID
       parameters:
       - description: Product ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Product data
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Product'
+      summary: Get a product
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: Update a product's information
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated product object
         in: body
         name: product
         required: true
@@ -132,13 +112,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/main.Product'
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
       summary: Update a product
+      tags:
+      - products
 swagger: "2.0"

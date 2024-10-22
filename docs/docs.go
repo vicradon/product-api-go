@@ -18,7 +18,13 @@ const docTemplate = `{
         "/products": {
             "get": {
                 "description": "Get all products",
-                "summary": "Get products",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "List all products",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -28,33 +34,24 @@ const docTemplate = `{
                                 "$ref": "#/definitions/main.Product"
                             }
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "string"
-                        }
                     }
                 }
             },
             "post": {
-                "description": "Create a product with the provided data",
+                "description": "Add a new product to the database",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "products"
+                ],
                 "summary": "Create a new product",
                 "parameters": [
                     {
-                        "description": "Product data",
+                        "description": "Product object",
                         "name": "product",
                         "in": "body",
                         "required": true,
@@ -69,65 +66,48 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/main.Product"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "string"
-                        }
                     }
                 }
             }
         },
         "/products/{id}": {
             "get": {
-                "description": "Get a specific product by ID",
-                "summary": "Get product",
+                "description": "Get a product by its ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get a product",
                 "parameters": [
                     {
                         "type": "integer",
                         "description": "Product ID",
                         "name": "id",
-                        "in": "path"
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/main.Product"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/main.Product"
                         }
                     }
                 }
             },
             "put": {
-                "description": "Update a product by ID",
+                "description": "Update a product's information",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "products"
                 ],
                 "summary": "Update a product",
                 "parameters": [
@@ -139,7 +119,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Product data",
+                        "description": "Updated product object",
                         "name": "product",
                         "in": "body",
                         "required": true,
@@ -154,23 +134,14 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/main.Product"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "string"
-                        }
                     }
                 }
             },
             "delete": {
-                "description": "Delete a product by ID",
+                "description": "Delete a product by its ID",
+                "tags": [
+                    "products"
+                ],
                 "summary": "Delete a product",
                 "parameters": [
                     {
@@ -183,21 +154,12 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Deleted successfully",
+                        "description": "OK",
                         "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "string"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -206,7 +168,6 @@ const docTemplate = `{
     },
     "definitions": {
         "main.Product": {
-            "description": "Product model",
             "type": "object",
             "properties": {
                 "id": {
@@ -226,6 +187,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "{host}",
+	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Product API",
 	Description:      "The name of the product",
