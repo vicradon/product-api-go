@@ -68,7 +68,7 @@ func TestListProducts(t *testing.T) {
 
 	responserecorder := httptest.NewRecorder()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		getProducts(w, r, 0, db)
+		getProducts(w, r, db)
 	})
 
 	request, err := http.NewRequest("GET", "/products", nil)
@@ -107,7 +107,7 @@ func TestGetSingleProduct(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		getProducts(w, r, 3, db)
+		getProduct(w, r, 3, db)
 	})
 
 	req, err := http.NewRequest("GET", "/products/1", nil)

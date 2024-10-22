@@ -1,0 +1,144 @@
+basePath: /
+definitions:
+  main.Product:
+    description: Product model
+    properties:
+      id:
+        description: "@Description\tThe unique ID of the product"
+        type: integer
+      name:
+        description: "@Description\tThe name of the product"
+        type: string
+    type: object
+host: '{host}'
+info:
+  contact: {}
+  description: The name of the product
+  title: Product API
+  version: "1.0"
+paths:
+  /products:
+    get:
+      description: Get all products
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/main.Product'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get products
+    post:
+      consumes:
+      - application/json
+      description: Create a product with the provided data
+      parameters:
+      - description: Product data
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/main.Product'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/main.Product'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Create a new product
+  /products/{id}:
+    delete:
+      description: Delete a product by ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: Deleted successfully
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Delete a product
+    get:
+      description: Get a specific product by ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/main.Product'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get product
+    put:
+      consumes:
+      - application/json
+      description: Update a product by ID
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Product data
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/main.Product'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.Product'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Update a product
+swagger: "2.0"

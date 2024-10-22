@@ -1,3 +1,8 @@
+// @title			Product API
+// @version		1.0
+// @description	This is a sample API for managing products
+// @host			{host}
+// @BasePath		/
 package main
 
 import (
@@ -7,19 +12,34 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/joho/godotenv"
+
 	"github.com/go-playground/validator/v10"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/vicradon/internpulse/stage3/docs"
 )
 
+// Product represents the product model
+//
+//	@Description	Product model
 type Product struct {
-	Id   int    `json:"id"`
-	Name string `json:"name" validate:"required"`
+	Id   int    `json:"id"`   //	@Description	The unique ID of the product
+	Name string `json:"name"` //	@Description	The name of the product
 }
 
+// writeJSON writes the response in JSON format
+//
+//	@Summary	Write JSON response
+//	@Param		data	body		Product	true	"Product data"
+//	@Success	200		{object}	Product
+//	@Failure	500		{object}	string
 func writeJSON(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -28,47 +48,75 @@ func writeJSON(w http.ResponseWriter, data interface{}) {
 	}
 }
 
-func getProducts(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
-	if id != 0 {
-		var product Product
+// getProduct retrieves a specific product
+//
+//	@Summary		Get product
+//	@Description	Get a specific product by ID
+//	@Param			id	path		int	false	"Product ID"
+//	@Success		200	{array}		Product
+//	@Failure		400	{object}	string
+//	@Failure		500	{object}	string
+//	@Router			/products/{id} [get]
+func getProduct(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
+	var product Product
 
-		err := db.QueryRow("SELECT * FROM products WHERE id=?", id).Scan(&product.Id, &product.Name)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				http.Error(w, fmt.Sprintf("No such product with id %d", id), http.StatusBadRequest)
-				return
-			}
-			http.Error(w, "An error occured", http.StatusInternalServerError)
+	err := db.QueryRow("SELECT * FROM products WHERE id=?", id).Scan(&product.Id, &product.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, fmt.Sprintf("No such product with id %d", id), http.StatusBadRequest)
 			return
 		}
-
-		writeJSON(w, product)
-	} else {
-		rows, err := db.Query("SELECT * FROM products")
-		if err != nil {
-			log.Fatal(err)
-			http.Error(w, "Unable to read from database", http.StatusInternalServerError)
-		}
-		defer rows.Close()
-
-		var products []Product
-
-		for rows.Next() {
-			var product Product
-			if err := rows.Scan(&product.Id, &product.Name); err != nil {
-				http.Error(w, "Bad reading of database content", http.StatusInternalServerError)
-			}
-			products = append(products, product)
-
-			if err = rows.Err(); err != nil {
-				http.Error(w, "An error occured in retrieving the rows", http.StatusInternalServerError)
-			}
-		}
-
-		writeJSON(w, products)
+		http.Error(w, "An error occurred", http.StatusInternalServerError)
+		return
 	}
+
+	writeJSON(w, product)
+
 }
 
+// getProducts retrieves all products
+//
+//	@Summary		Get products
+//	@Description	Get all products
+//	@Success		200	{array}		Product
+//	@Failure		400	{object}	string
+//	@Failure		500	{object}	string
+//	@Router			/products [get]
+func getProducts(w http.ResponseWriter, _ *http.Request, db *sql.DB) {
+	rows, err := db.Query("SELECT * FROM products")
+	if err != nil {
+		http.Error(w, "Unable to read from database", http.StatusInternalServerError)
+	}
+	defer rows.Close()
+
+	var products []Product
+
+	for rows.Next() {
+		var product Product
+		if err := rows.Scan(&product.Id, &product.Name); err != nil {
+			http.Error(w, "Bad reading of database content", http.StatusInternalServerError)
+		}
+		products = append(products, product)
+
+		if err = rows.Err(); err != nil {
+			http.Error(w, "An error occurred in retrieving the rows", http.StatusInternalServerError)
+		}
+	}
+
+	writeJSON(w, products)
+}
+
+// createProduct creates a new product
+//
+//	@Summary		Create a new product
+//	@Description	Create a product with the provided data
+//	@Accept			json
+//	@Produce		json
+//	@Param			product	body		Product	true	"Product data"
+//	@Success		201		{object}	Product
+//	@Failure		400		{object}	string
+//	@Failure		500		{object}	string
+//	@Router			/products [post]
 func createProduct(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
@@ -96,8 +144,7 @@ func createProduct(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 
 	result, err := db.Exec("INSERT INTO products (name) VALUES (?)", product.Name)
 	if err != nil {
-		log.Fatal(err)
-		http.Error(w, "Unable to write to datbase", http.StatusInternalServerError)
+		http.Error(w, "Unable to write to database", http.StatusInternalServerError)
 	}
 
 	newProductId, _ := result.LastInsertId()
@@ -105,13 +152,25 @@ func createProduct(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	var newProduct Product
 
 	if err = db.QueryRow("SELECT * FROM products WHERE id = ?", newProductId).Scan(&newProduct.Id, &newProduct.Name); err != nil {
-		http.Error(w, "An error occured while fetching the newly created row", http.StatusInternalServerError)
+		http.Error(w, "An error occurred while fetching the newly created row", http.StatusInternalServerError)
 		return
 	}
 
 	writeJSON(w, newProduct)
 }
 
+// updateProduct updates an existing product
+//
+//	@Summary		Update a product
+//	@Description	Update a product by ID
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		int		true	"Product ID"
+//	@Param			product	body		Product	true	"Product data"
+//	@Success		200		{object}	Product
+//	@Failure		400		{object}	string
+//	@Failure		500		{object}	string
+//	@Router			/products/{id} [put]
 func updateProduct(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
@@ -122,20 +181,20 @@ func updateProduct(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
 	var newProduct Product
 
 	if err = json.Unmarshal(body, &newProduct); err != nil {
-		http.Error(w, "Error parsing request body as json", http.StatusBadRequest)
+		http.Error(w, "Error parsing request body as JSON", http.StatusBadRequest)
 		return
 	}
 
 	result, err := db.Exec("UPDATE products SET name = ? WHERE id = ?", newProduct.Name, id)
 
 	if err != nil {
-		http.Error(w, "An error occured while updating the rows", http.StatusInternalServerError)
+		http.Error(w, "An error occurred while updating the rows", http.StatusInternalServerError)
 		return
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("An error occured for product with id %d", id), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("An error occurred for product with id %d", id), http.StatusBadRequest)
 		return
 	}
 	if rowsAffected == 0 {
@@ -144,16 +203,25 @@ func updateProduct(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
 	}
 
 	if err = db.QueryRow("SELECT * FROM products WHERE id=?", id).Scan(&newProduct.Id, &newProduct.Name); err != nil {
-		http.Error(w, "An error occured while writing the rows", http.StatusInternalServerError)
+		http.Error(w, "An error occurred while writing the rows", http.StatusInternalServerError)
 	}
 
 	writeJSON(w, newProduct)
 }
 
+// deleteProduct deletes a product
+//
+//	@Summary		Delete a product
+//	@Description	Delete a product by ID
+//	@Param			id	path		int		true	"Product ID"
+//	@Success		200	{string}	string	"Deleted successfully"
+//	@Failure		400	{object}	string
+//	@Failure		500	{object}	string
+//	@Router			/products/{id} [delete]
 func deleteProduct(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
 	result, err := db.Exec("DELETE from products WHERE id = ?", id)
 	if err != nil {
-		http.Error(w, "An error occured while deleting your data", http.StatusInternalServerError)
+		http.Error(w, "An error occurred while deleting your data", http.StatusInternalServerError)
 		return
 	}
 	rowsAffected, err := result.RowsAffected()
@@ -167,9 +235,10 @@ func deleteProduct(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
 		return
 	}
 
-	fmt.Fprintf(w, "Deleted product successfully")
+	writeJSON(w, "Deleted product successfully")
 }
 
+// initDB initializes the database
 func initDB(db *sql.DB) {
 	_, err := db.Exec("CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
 	if err != nil {
@@ -178,7 +247,22 @@ func initDB(db *sql.DB) {
 }
 
 func main() {
-	db, err := sql.Open("sqlite3", "database.db")
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	databaseFile := os.Getenv("DATABASE_FILE")
+	port := os.Getenv("PORT")
+	host := os.Getenv("HOST")
+
+	if host == "" {
+		host = fmt.Sprintf("localhost:%s", port)
+	}
+
+	docs.SwaggerInfo.Host = host
+
+	db, err := sql.Open("sqlite3", databaseFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -187,15 +271,20 @@ func main() {
 	initDB(db)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "API docs")
+		host = r.Host
+		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
 	})
+
+	http.Handle("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 
 	http.HandleFunc("/products", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			createProduct(w, r, db)
 		case http.MethodGet:
-			getProducts(w, r, 0, db)
+			getProducts(w, r, db)
 		default:
 			http.Redirect(w, r, "/products/", http.StatusMovedPermanently)
 		}
@@ -220,7 +309,11 @@ func main() {
 		case http.MethodPost:
 			createProduct(w, r, db)
 		case http.MethodGet:
-			getProducts(w, r, id, db)
+			if id > 0 {
+				getProduct(w, r, id, db)
+			} else {
+				getProducts(w, r, db)
+			}
 		case http.MethodPut:
 			updateProduct(w, r, id, db)
 		case http.MethodDelete:
@@ -230,6 +323,6 @@ func main() {
 		}
 	})
 
-	fmt.Println("Server running on port 8000")
-	http.ListenAndServe(":8000", nil)
+	fmt.Printf("Server running on port %s", port)
+	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 }
