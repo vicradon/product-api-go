@@ -64,6 +64,7 @@ func getProducts(w http.ResponseWriter, _ *http.Request, id int, db *sql.DB) {
 				http.Error(w, "An error occured in retrieving the rows", http.StatusInternalServerError)
 			}
 		}
+
 		writeJSON(w, products)
 	}
 }
@@ -111,7 +112,7 @@ func createProduct(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	writeJSON(w, newProduct)
 }
 
-func updateProducts(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
+func updateProduct(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) {
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -125,7 +126,6 @@ func updateProducts(w http.ResponseWriter, r *http.Request, id int, db *sql.DB) 
 		return
 	}
 
-	fmt.Println(newProduct.Name, id)
 	result, err := db.Exec("UPDATE products SET name = ? WHERE id = ?", newProduct.Name, id)
 
 	if err != nil {
@@ -194,6 +194,8 @@ func main() {
 		switch r.Method {
 		case http.MethodPost:
 			createProduct(w, r, db)
+		case http.MethodGet:
+			getProducts(w, r, 0, db)
 		default:
 			http.Redirect(w, r, "/products/", http.StatusMovedPermanently)
 		}
@@ -220,7 +222,7 @@ func main() {
 		case http.MethodGet:
 			getProducts(w, r, id, db)
 		case http.MethodPut:
-			updateProducts(w, r, id, db)
+			updateProduct(w, r, id, db)
 		case http.MethodDelete:
 			deleteProduct(w, r, id, db)
 		default:
