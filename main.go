@@ -255,14 +255,12 @@ func main() {
 	databaseFile := os.Getenv("DATABASE_FILE")
 	port := os.Getenv("PORT")
 	host := os.Getenv("HOST")
-	basePath := os.Getenv("BASE_PATH")
 
 	if host == "" {
 		host = fmt.Sprintf("localhost:%s", port)
 	}
 
 	docs.SwaggerInfo.Host = host
-	docs.SwaggerInfo.BasePath = basePath
 
 	db, err := sql.Open("sqlite3", databaseFile)
 	if err != nil {
@@ -274,14 +272,14 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		host = r.Host
-		http.Redirect(w, r, basePath+"/swagger/index.html", http.StatusMovedPermanently)
+		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
 	})
 
-	http.Handle(basePath+"/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL(basePath+"/swagger/doc.json"),
+	http.Handle("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
 	))
 
-	http.HandleFunc(basePath+"/products", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/products", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			createProduct(w, r, db)
@@ -292,7 +290,7 @@ func main() {
 		}
 	})
 
-	http.HandleFunc(basePath+"/products/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/products/", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/products")
 		path = strings.Trim(path, "/")
 
