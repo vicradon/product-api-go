@@ -256,13 +256,13 @@ func main() {
 	port := os.Getenv("PORT")
 	host := os.Getenv("HOST")
 	basePath := os.Getenv("BASE_PATH")
-	fmt.Println(basePath)
 
 	if host == "" {
 		host = fmt.Sprintf("localhost:%s", port)
 	}
 
 	docs.SwaggerInfo.Host = host
+	docs.SwaggerInfo.BasePath = basePath
 
 	db, err := sql.Open("sqlite3", databaseFile)
 	if err != nil {

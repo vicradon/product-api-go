@@ -226,7 +226,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "{host}",
-	BasePath:         "/",
+	BasePath:         "{basePath}",
 	Schemes:          []string{},
 	Title:            "Product API",
 	Description:      "The name of the product",
