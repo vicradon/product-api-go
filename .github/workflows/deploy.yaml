@@ -19,9 +19,10 @@ jobs:
       - name: Limit ssh key permission
         run: chmod 600 sshkey.pem
       - name: Upload binary to server
-        run: scp -i sshkey.pem productapi $SSH_USER@$SSH_HOST:~/deployments/product-api-go/productapi
+        run: scp -o StrictHostKeyChecking=no -i sshkey.pem productapi $SSH_USER@$SSH_HOST:~/deployments/product-api-go/productapi
 
   deploy:
+    needs: ["build_and_push"]
     runs-on: ubuntu-latest
     env:
       SSH_KEY: ${{ secrets.SSH_KEY }}
@@ -40,6 +41,6 @@ jobs:
               cd ~/deployments/product-api-go
               git reset --hard
               git pull origin main
-              swag init
+              ~/go/bin/swag init
               pm2 restart productapi
           EOF
