@@ -3,6 +3,24 @@ on:
     branches: ["main"]
 
 jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    env:
+      SSH_KEY: ${{ secrets.SSH_KEY }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build app
+        run: go build -o productapi
+      - name: Set up ssh key
+        run: echo "$SSH_KEY" > sshkey.pem
+      - name: Limit ssh key permission
+        run: chmod 600 sshkey.pem
+      - name: Upload binary to server
+        run: scp -i sshkey.pem productapi $SSH_USER@$SSH_HOST:~/deployments/product-api-go/productapi
+
   deploy:
     runs-on: ubuntu-latest
     env:
@@ -22,8 +40,6 @@ jobs:
               cd ~/deployments/product-api-go
               git reset --hard
               git pull origin main
-              go mod tidy
-              go build -o productapi
               swag init
               pm2 restart productapi
           EOF
