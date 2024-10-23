@@ -19,7 +19,7 @@ jobs:
       - name: Limit ssh key permission
         run: chmod 600 sshkey.pem
       - name: Upload binary to server
-        run: scp -o StrictHostKeyChecking=no -i sshkey.pem productapi $SSH_USER@$SSH_HOST:~/deployments/product-api-go/productapi
+        run: rsync -e "ssh -o StrictHostKeyChecking=no -i sshkey.pem" productapi $SSH_USER@$SSH_HOST:~/deployments/product-api-go/productapi
 
   deploy:
     needs: ["build_and_push"]
